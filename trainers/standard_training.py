@@ -43,42 +43,6 @@ train_loader = DataLoader(train_set, batch_size=64, shuffle=True)
 test_loader = DataLoader(test_set, batch_size=64, shuffle=False)
 test_adv_loader = DataLoader(test_set, batch_size=64, shuffle=False)
 
-def pqd_attacks(model, X, y, epsilon=8/255, alpha=0.01, num_iter=7, restarts=1, normalizer=normalizer):
-    """
-    Perform Projected Gradient Descent (PGD) attacks.
-    
-    Args:
-        model: The neural network model.
-        X: Input data.
-        y: True labels.
-        epsilon: Maximum perturbation.
-        alpha: Step size for each iteration.
-        num_iter: Number of iterations.
-        restarts: Number of restarts for the attack.
-        normalizer: Normalization function.
-        
-    Returns:
-        max_delta: Maximum perturbation found.
-    """
-    max_loss = torch.zeros(y.shape[0]).to(X.device)
-    max_delta = torch.zeros_like(X).to(X.device)
-
-    for _ in range(restarts):
-        delta = torch.rand_like(X, requires_grad=True)
-        delta.data = delta.data * 2 * epsilon - epsilon
-
-        for _ in range(num_iter):
-            loss = nn.CrossEntropyLoss(reduction='none')(model(normalizer(torch.clamp(X + delta, 0, 1))), y)
-            loss_b = loss.mean()
-            loss_b.backward()
-            delta.data = (delta + alpha * delta.grad.detach().sign()).clamp(-epsilon, epsilon)
-
-            delta.grad.zero_()
-            max_delta[loss >= max_loss] = delta.detach()[loss >= max_loss]
-            max_loss = torch.max(max_loss, loss)
-
-    return max_delta
-
 # Initialize the model
 model = resnet18()
 model.conv1 = nn.Conv2d(3, 64, kernel_size=3, stride=1, padding=1, bias=False)
@@ -95,7 +59,7 @@ model.to(device)
 
 def train(model, device, train_loader, optimizer, epoch, normalizer=normalizer):
     """
-    Train the model for one epoch.
+    Training the model
     
     Args:
         model: The neural network model.
@@ -160,6 +124,78 @@ def test(model, device, test_loader, normalizer=normalizer):
     test_accuracy = (100. * acc_mean) / k
     print(f'\nTest set: Average loss: {test_loss:.4f}, Accuracy: {test_accuracy:.2f}%\n')
     return test_accuracy
+
+def pqd_attacks(model, X, y, epsilon=8/255, alpha=0.01, num_iter=7, restarts=1, normalizer=normalizer):
+    """
+    Perform Projected Gradient Descent (PGD) attacks.
+    
+    Args:
+        model: The neural network model.
+        X: Input data.
+        y: True labels.
+        epsilon: Maximum perturbation.
+        alpha: Step size for each iteration.
+        num_iter: Number of iterations.
+        restarts: Number of restarts for the attack.
+        normalizer: Normalization function.
+        
+    Returns:
+        max_delta: Maximum perturbation found.
+    """
+    max_loss = torch.zeros(y.shape[0]).to(X.device)
+    max_delta = torch.zeros_like(X).to(X.device)
+
+    for _ in range(restarts):
+        delta = torch.rand_like(X, requires_grad=True)
+        delta.data = delta.data * 2 * epsilon - epsilon
+
+        for _ in range(num_iter):
+            loss = nn.CrossEntropyLoss(reduction='none')(model(normalizer(torch.clamp(X + delta, 0, 1))), y)
+            loss_b = loss.mean()
+            loss_b.backward()
+            delta.data = (delta + alpha * delta.grad.detach().sign()).clamp(-epsilon, epsilon)
+
+            delta.grad.zero_()
+            max_delta[loss >= max_loss] = delta.detach()[loss >= max_loss]
+            max_loss = torch.max(max_loss, loss)
+
+    return max_delta
+    
+    def pqd_attacks(model, X, y, epsilon=8/255, alpha=0.01, num_iter=7, restarts=1, normalizer=normalizer):
+    """
+    Perform Projected Gradient Descent (PGD) attacks.
+    
+    Args:
+        model: The neural network model.
+        X: Input data.
+        y: True labels.
+        epsilon: Maximum perturbation.
+        alpha: Step size for each iteration.
+        num_iter: Number of iterations.
+        restarts: Number of restarts for the attack.
+        normalizer: Normalization function.
+        
+    Returns:
+        max_delta: Maximum perturbation found.
+    """
+    max_loss = torch.zeros(y.shape[0]).to(X.device)
+    max_delta = torch.zeros_like(X).to(X.device)
+
+    for _ in range(restarts):
+        delta = torch.rand_like(X, requires_grad=True)
+        delta.data = delta.data * 2 * epsilon - epsilon
+
+        for _ in range(num_iter):
+            loss = nn.CrossEntropyLoss(reduction='none')(model(normalizer(torch.clamp(X + delta, 0, 1))), y)
+            loss_b = loss.mean()
+            loss_b.backward()
+            delta.data = (delta + alpha * delta.grad.detach().sign()).clamp(-epsilon, epsilon)
+
+            delta.grad.zero_()
+            max_delta[loss >= max_loss] = delta.detach()[loss >= max_loss]
+            max_loss = torch.max(max_loss, loss)
+
+    return max_delta
 
 def test_adv(model, device, test_adv_loader, normalizer=normalizer, epsilon=8/255, alpha=0.01, num_iter=7, restarts=1):
     """
