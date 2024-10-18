@@ -193,7 +193,7 @@ def test_adv(model, device, test_adv_loader, normalizer=normalizer, epsilon=8/25
     return test_adv_accuracy
 
 # Training and testing loop
-for epoch in tqdm_notebook(range(1, 2)):
+for epoch in tqdm_notebook(range(1, 101)):
     run_loss = train(model, device, train_loader, optimizer, epoch)
     test_acc = test(model, device, test_loader)
     test_acc_adv = test_adv(model, device, test_adv_loader)
